@@ -56,7 +56,7 @@ func TestGIFUploadByFile(t *testing.T) {
 }
 
 func TestGetGfyInfoByRandomString(t *testing.T) {
-	response, err := GetGfyInfoByRandomString("DeficientFluffyBluefish")
+	response, err := GetGfyInfoByGfyName("DeficientFluffyBluefish")
 	if err != nil {
 		if err.Error() == "json: cannot unmarshal string into Go value of type int" {
 			t.Error("This fails because of weird types in the Gfycat JSON response. I informed them about this.")
