@@ -22,12 +22,14 @@ type gfyError struct {
 	Time    int
 }
 
-type gfyResponse struct {
-	GfyItem gfyItem
+// GfyResponse is the response of GetGfyInfoByGfyName().
+type GfyResponse struct {
+	GfyItem GfyItem
 }
 
-type gfyItem struct {
-	GfyId              string
+// GfyItem is the response of UploadGIFByURL() and UploadGIFByFile().
+type GfyItem struct {
+	GfyID              string
 	GfyName            string
 	GfyNumber          string
 	UserName           string
@@ -53,21 +55,22 @@ type gfyItem struct {
 	Source             string
 	Dynamo             string
 	Subreddit          string
-	RedditId           string
-	RedditIdText       string
+	RedditID           string
+	RedditIDText       string
 	UploadGifName      string
 	Likes              int
 	Dislikes           int
 	Published          int
 	Description        string
 	ExtraLemmaText     string
-	UrlMD5             string
+	URLMD5             string
 	Task               string
 	GfySize            int
 	CopyrightClaimaint string
 }
 
-type gfyCheckURLResponse struct {
+// GfyCheckURLResponse is the response of CheckGIFByURL().
+type GfyCheckURLResponse struct {
 	URLKnown  bool
 	GfyName   string
 	GfyURL    string
@@ -77,7 +80,8 @@ type gfyCheckURLResponse struct {
 	FrameRate int
 }
 
-type gfyOEmbed struct {
+// GfyOEmbed is the response of GetOEmbedDataByGfyURL().
+type GfyOEmbed struct {
 	Version      string
 	Type         string
 	ProviderName string `json:"provider_name"`
@@ -101,7 +105,7 @@ func getGfyError(jsonData []byte) error {
 
 // UploadGIFByURL uploads a GIF by URL and returns information about the generated item.
 // You can provide an optional random string for the GfyName.
-func UploadGIFByURL(gifURL string, ownRandomString string) (gfyItem, error) {
+func UploadGIFByURL(gifURL string, ownRandomString string) (GfyItem, error) {
 	var requestURL string
 	if ownRandomString != "" {
 		requestURL = "https://upload.gfycat.com/transcodeRelease/" + ownRandomString + "?fetchUrl=" + url.QueryEscape(gifURL)
@@ -110,32 +114,32 @@ func UploadGIFByURL(gifURL string, ownRandomString string) (gfyItem, error) {
 	}
 	response, err := http.DefaultClient.Get(requestURL)
 	if err != nil {
-		return gfyItem{}, err
+		return GfyItem{}, err
 	}
 	bytes, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return gfyItem{}, err
+		return GfyItem{}, err
 	}
 	err = getGfyError(bytes)
 	if err != nil {
-		return gfyItem{}, err
+		return GfyItem{}, err
 	}
-	var item gfyItem
+	var item GfyItem
 	err = json.Unmarshal(bytes, &item)
 	if err != nil {
-		return gfyItem{}, err
+		return GfyItem{}, err
 	}
 	return item, nil
 }
 
 // UploadGIFByFile uploads a GIF by a file path and returns information about the generated item.
 // You must provide a random string for the GfyName.
-func UploadGIFByFile(gifFilePath, ownRandomString string) (gfyItem, error) {
+func UploadGIFByFile(gifFilePath, ownRandomString string) (GfyItem, error) {
 	if ownRandomString == "" {
-		return gfyItem{}, errors.New("You must provide your own random string.")
+		return GfyItem{}, errors.New("You must provide your own random string.")
 	}
 	if gifFilePath == "" {
-		return gfyItem{}, errors.New("You must provide a GIF file path.")
+		return GfyItem{}, errors.New("You must provide a GIF file path.")
 	}
 	var b bytes.Buffer
 	w := multipart.NewWriter(&b)
@@ -148,109 +152,109 @@ func UploadGIFByFile(gifFilePath, ownRandomString string) (gfyItem, error) {
 	w.WriteField("key", ownRandomString)
 	f, err := os.Open(gifFilePath)
 	if err != nil {
-		return gfyItem{}, err
+		return GfyItem{}, err
 	}
 	fw, err := w.CreateFormFile("file", filepath.Base(gifFilePath))
 	if err != nil {
-		return gfyItem{}, err
+		return GfyItem{}, err
 	}
 	if _, err = io.Copy(fw, f); err != nil {
-		return gfyItem{}, err
+		return GfyItem{}, err
 	}
 	w.Close()
 
 	req, err := http.NewRequest("POST", "https://gifaffe.s3.amazonaws.com/", &b)
 	if err != nil {
-		return gfyItem{}, err
+		return GfyItem{}, err
 	}
 	req.Header.Add("Content-Type", w.FormDataContentType())
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return gfyItem{}, err
+		return GfyItem{}, err
 	}
 	if response.ContentLength != 0 {
 		bytes, err := ioutil.ReadAll(response.Body)
 		if err == nil {
 			err = errors.New(string(bytes))
 		}
-		return gfyItem{}, err
+		return GfyItem{}, err
 	}
 	response, err = http.DefaultClient.Get("https://upload.gfycat.com/transcode/" + url.QueryEscape(ownRandomString))
 	bytes, err := ioutil.ReadAll(response.Body)
 	err = getGfyError(bytes)
 	if err != nil {
-		return gfyItem{}, err
+		return GfyItem{}, err
 	}
-	var item gfyItem
+	var item GfyItem
 	err = json.Unmarshal(bytes, &item)
 	if err != nil {
-		return gfyItem{}, err
+		return GfyItem{}, err
 	}
 	return item, nil
 }
 
-// GetGfyInfoByRandomString returns information about the provided GfyName.
-func GetGfyInfoByGfyName(gfyName string) (gfyResponse, error) {
+// GetGfyInfoByGfyName returns information about the provided GfyName.
+func GetGfyInfoByGfyName(gfyName string) (GfyResponse, error) {
 	response, err := http.DefaultClient.Get("https://gfycat.com/cajax/get/" + url.QueryEscape(gfyName))
 	if err != nil {
-		return gfyResponse{}, err
+		return GfyResponse{}, err
 	}
 	bytes, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return gfyResponse{}, err
+		return GfyResponse{}, err
 	}
 	err = getGfyError(bytes)
 	if err != nil {
-		return gfyResponse{}, err
+		return GfyResponse{}, err
 	}
-	var rsp gfyResponse
+	var rsp GfyResponse
 	err = json.Unmarshal(bytes, &rsp)
 	if err != nil {
-		return gfyResponse{}, err
+		return GfyResponse{}, err
 	}
 	return rsp, nil
 }
 
 // CheckGIFByURL checks if a provided GIF URL was already posted to gfycat.com.
-func CheckGIFByURL(gifURL string) (gfyCheckURLResponse, error) {
+func CheckGIFByURL(gifURL string) (GfyCheckURLResponse, error) {
 	response, err := http.DefaultClient.Get("https://gfycat.com/cajax/checkUrl/" + url.QueryEscape(gifURL))
 	if err != nil {
-		return gfyCheckURLResponse{}, err
+		return GfyCheckURLResponse{}, err
 	}
 	bytes, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return gfyCheckURLResponse{}, err
+		return GfyCheckURLResponse{}, err
 	}
 	err = getGfyError(bytes)
 	if err != nil {
-		return gfyCheckURLResponse{}, err
+		return GfyCheckURLResponse{}, err
 	}
-	var rsp gfyCheckURLResponse
+	var rsp GfyCheckURLResponse
 	err = json.Unmarshal(bytes, &rsp)
 	if err != nil {
-		return gfyCheckURLResponse{}, err
+		return GfyCheckURLResponse{}, err
 	}
 	return rsp, nil
 }
 
 // GetOEmbedDataByGfyURL returns oembed information about the provided gfycat.com URL.
-func GetOEmbedDataByGfyURL(gfyURL string, maxWidth, maxHeight int) (gfyOEmbed, error) {
+func GetOEmbedDataByGfyURL(gfyURL string, maxWidth, maxHeight int) (GfyOEmbed, error) {
 	response, err := http.DefaultClient.Get("https://api.gfycat.com/v1/oembed?url=" + url.QueryEscape(gfyURL) + "&maxwidth=" + strconv.Itoa(maxWidth) + "&maxheight=" + strconv.Itoa(maxHeight))
 	if err != nil {
-		return gfyOEmbed{}, err
+		return GfyOEmbed{}, err
 	}
 	bytes, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return gfyOEmbed{}, err
+		return GfyOEmbed{}, err
 	}
 	err = getGfyError(bytes)
 	if err != nil {
-		return gfyOEmbed{}, err
+		return GfyOEmbed{}, err
 	}
-	var rsp gfyOEmbed
+	var rsp GfyOEmbed
 	err = json.Unmarshal(bytes, &rsp)
 	if err != nil {
-		return gfyOEmbed{}, err
+		return GfyOEmbed{}, err
 	}
 	return rsp, nil
 }
